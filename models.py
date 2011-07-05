@@ -13,6 +13,7 @@ from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import smart_unicode
 
 from .managers import ConditionManager, ConditionClassManager
 
@@ -135,10 +136,20 @@ class ConditionClass(models.Model):
         To get the content type of the proxy (which is what we need) and not
         the parent, we use .get_by_natural_key(app_label, name) which doesn't
         climb to the parent.
+
+        UPDATE:
+        .get_by_natural_key replaced by get_or_create() to prevent
+        DoesNotExist exception on missing ContentType.
+        It seems like newer Django (1.3?) doesn't create CT automatically
+        for proxy models.
         '''
-        return ContentType.objects \
-                          .get_by_natural_key(cls._meta.app_label,
-                                              cls._meta.object_name.lower())
+
+        ctype, created = ContentType.objects.get_or_create(
+            app_label=cls._meta.app_label,
+            model=cls._meta.object_name.lower(),
+            defaults={'name': smart_unicode(cls._meta.verbose_name_raw)})
+
+        return ctype
 
     @classmethod
     def _get_action_methods(cls, action_type):
